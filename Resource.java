@@ -33,10 +33,14 @@ class Resource
       System.err.println("Error: Transaction " + transactionId + " tried to lock a resource it already has locked!");
       return false;
     }
-
+    long start = System.currentTimeMillis();
     while (lockOwner != NOT_LOCKED) {
       try {
-        wait();
+        wait(3000);
+        if(start<System.currentTimeMillis()-3000){
+        	System.out.println("TIMEOUT");
+        	return false;
+        }
       } catch (InterruptedException ie) {
       }
     }
