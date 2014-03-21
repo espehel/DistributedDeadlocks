@@ -10,7 +10,7 @@ class Globals
   /**
    * The number of milliseconds to wait for a lock before a timeout is declared.
    */
-  static long TIMEOUT_INTERVAL = 3000; // Timeouts disabled
+  static long TIMEOUT_INTERVAL = 3000;
   
   static boolean USE_TIMEOUT = false;
   /**
