@@ -93,7 +93,7 @@ public class ServerImpl extends UnicastRemoteObject implements Server
     readGlobalParameters(inputfile);
     resources = new ArrayList<Resource>();
     for (int i = 0; i < Globals.NOF_RESOURCES_PER_SERVER; i++)
-      resources.add(new Resource());
+      resources.add(new Resource(this));
 
     try {
       // Find the registry proxy object used to bind non-local objects to the registry:
@@ -379,16 +379,88 @@ public class ServerImpl extends UnicastRemoteObject implements Server
    * @param resourceID The ID of the resource whose lock the transaction wants.
    * @return Whether or not the lock was acquired.
    */
-  public boolean lockResource(int transactionId, int resourceId) throws RemoteException
-  {
-    Resource r = resources.get(resourceId);
+  public boolean lockResource(int transactionId, int resourceId) throws RemoteException {  
+	Resource r = resources.get(resourceId);
+
+	
+//	if(r.getLockOwner()!=Resource.NOT_LOCKED){
+////		new Thread(new Probe(transactionId,r.getLockOwner(),this)).start();
+//		//the transaction that holds the resource
+////		Transaction trans = getServer(getTransactionOwner(r.getLockOwner())).getActiveTransaction();
+//		final Server transOwner = getServer(getTransactionOwner(r.getLockOwner()));
+//		//the server that contains the resource that this lockowner is waiting for
+//		if(transOwner.isWaitingForResource()){
+//				
+//			final Probe probe = new Probe(transactionId,r.getLockOwner());
+//			new Thread(new Runnable() {
+//				@Override
+//				public void run() {
+//					try {
+//						transOwner.sendProbe(probe);
+//					} catch (RemoteException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//				}
+//			}).start();
+//		}
+//	}
+	
     boolean result = r.lock(transactionId);
     if (gui != null)
       gui.updateResourceTable(resources);
     return result;
   }
+//  public void sendProbe(Probe probe)throws RemoteException{
+//	  if(!activeTransaction.isWaitingForResource())
+//		  return;
+//		Server resourceServer = activeTransaction.getWaitingForResource().server;
+//	  int lockOwner = resourceServer.getResourceHolder(activeTransaction.getWaitingForResource().resourceId);
+//	  if(lockOwner != Resource.NOT_LOCKED){
+//		  Server transOwner = getServer(getTransactionOwner(lockOwner));
+//		  if(transOwner.isWaitingForResource()){
+//			  if(probe.createsCycle(lockOwner))
+//				  resourceServer.abortTransaction(activeTransaction.getWaitingForResource().resourceId, activeTransaction.getTransactionId());
+//			  else
+//				  probe.addEdge(lockOwner);
+//			  transOwner.sendProbe(probe);
+//		  }  
+//	  }
+//  }
+  public void receiveProbe(ArrayList<Integer> edges) throws RemoteException{
+	  if(activeTransaction != null){
+		  ResourceAccess waitingOnRes = activeTransaction.getWaitingForResource();
+		  if(waitingOnRes != null)
+			  if(createsCycle(activeTransaction.getTransactionId(), edges)){
+				  waitingOnRes.server.abortTransaction(waitingOnRes.resourceId, activeTransaction.getTransactionId());
+			  }
+			  else{
+				  edges.add(activeTransaction.getTransactionId());
+				  int waitingOnTransId = waitingOnRes.server.getResourceHolder(waitingOnRes.resourceId);
+				  Server waitingOnServer = getServer(ServerImpl.getTransactionOwner(waitingOnTransId));
+				  if(waitingOnServer != null)
+					  waitingOnServer.receiveProbe(edges);
+			  }
+		  
+	  }
+  }
 
-  /**
+  public void abortTransaction(int resourceId, int transactionId) throws RemoteException{
+	  Resource r = resources.get(resourceId);
+	synchronized (r) {
+		r.abortTransactionId = transactionId;
+		r.notifyAll();
+	}
+}
+  private boolean createsCycle(int transId, ArrayList<Integer> edges){
+		for (Integer id : edges) {
+			if(id == transId)
+				return true;
+		}
+		return false;
+	}
+
+/**
    * Release the lock of the specified local resource, which is currently locked by the specified transaction.
    *
    * @param lockerId   The ID of the transaction that owns the lock and wants to release it.
@@ -402,6 +474,11 @@ public class ServerImpl extends UnicastRemoteObject implements Server
     if (gui != null)
       gui.updateResourceTable(resources);
     return result;
+  }
+  
+  public void abortActiveTransaction(){
+	  activeTransaction.setAbortStatus(true);
+	  notifyAll();
   }
 
   /**
@@ -576,6 +653,9 @@ public class ServerImpl extends UnicastRemoteObject implements Server
   {
     return servers.get(id);
   }
+  public Transaction getActiveTransaction() throws RemoteException{
+	  return activeTransaction;
+  }
 
   /**
    * Starts up a new server.
@@ -599,4 +679,23 @@ public class ServerImpl extends UnicastRemoteObject implements Server
       re.printStackTrace();
     }
   }
+
+public Resource getResource(int i) {
+	return resources.get(i);
+}
+
+@Override
+public boolean isWaitingForResource() throws RemoteException {
+	return activeTransaction.isWaitingForResource();
+}
+
+@Override
+public int getResourceOwner() throws RemoteException {
+	return activeTransaction.getWaitingForResource().serverId;
+}
+
+@Override
+public int getResourceHolder(int resourceId) throws RemoteException {
+	return resources.get(resourceId).getLockOwner();
+}
 }

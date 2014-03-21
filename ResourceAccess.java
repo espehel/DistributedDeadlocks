@@ -45,4 +45,7 @@ class ResourceAccess
     ResourceAccess lr = (ResourceAccess)o;
     return lr.resourceId == resourceId && lr.serverId == serverId;
   }
+  public ServerImpl getServer(){
+	  return (ServerImpl) server;
+  }
 }

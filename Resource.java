@@ -6,18 +6,21 @@ package oving4;
 class Resource
 {
   static final int NOT_LOCKED = -1;
+  int abortTransactionId;
 
   /**
    * The transaction currently holding the lock to this resource
    */
   private int lockOwner;
+  private Server owner;
 
   /**
    * Creates a new resource.
    */
-  Resource()
+  Resource(Server owner)
   {
     lockOwner = NOT_LOCKED;
+    this.owner = owner;
   }
 
   /**
@@ -36,11 +39,19 @@ class Resource
     long start = System.currentTimeMillis();
     while (lockOwner != NOT_LOCKED) {
       try {
-        wait(3000);
-        if(start<System.currentTimeMillis()-3000){
-        	System.out.println("TIMEOUT");
-        	return false;
-        }
+    	if(Globals.USE_TIMEOUT){
+	        wait(3000);
+	        if(start<System.currentTimeMillis()-3000){
+	        	System.out.println("TIMEOUT");
+	        	return false;
+	        }
+    	}
+    	if(Globals.PROBING_ENABLED){
+    		wait();
+    		
+	        if(abortTransactionId == transactionId)
+	        	return false;
+    	}
       } catch (InterruptedException ie) {
       }
     }

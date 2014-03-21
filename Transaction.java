@@ -34,6 +34,8 @@ class Transaction
    * The transaction file reader whose input specifies the contents of this transaction
    */
   private final TransactionFileReader input;
+  
+  private boolean abortStatus;
 
   /**
    * Creates a new transaction object.
@@ -163,8 +165,15 @@ class Transaction
   private synchronized boolean acquireLock(ResourceAccess resourceAccess)
   {
     waitingForResource = resourceAccess;
+   
     owner.println("Trying to claim lock of resource " + resourceAccess.resourceId + " at server " + resourceAccess.serverId, transactionId);
     try {
+    	
+    	if(Globals.PROBING_ENABLED)
+    		new Thread(new Probe(owner)).start();
+    	
+    	
+    	
       if (resourceAccess.server.lockResource(transactionId, resourceAccess.resourceId)) {
         lockedResources.add(resourceAccess);
         waitingForResource = null;
@@ -250,5 +259,22 @@ class Transaction
     } catch (RemoteException re) {
       owner.println("Failed to unlock resource " + resource.resourceId + " at server " + resource.serverId + " due to communication failure.", transactionId);
     }
+  }
+  
+  public boolean isWaitingForResource(){
+	  return waitingForResource == null;
+  }
+  public int getTransactionId(){
+	  return transactionId;
+  }
+  public ResourceAccess getWaitingForResource(){
+	  return waitingForResource;
+  }
+
+  public synchronized void setAbortStatus(boolean status) {
+	  abortStatus = status;
+  }
+  public synchronized boolean getAbortStatus(){
+	  return abortStatus;
   }
 }

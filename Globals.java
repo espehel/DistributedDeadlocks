@@ -10,7 +10,9 @@ class Globals
   /**
    * The number of milliseconds to wait for a lock before a timeout is declared.
    */
-  static long TIMEOUT_INTERVAL = 0; // Timeouts disabled
+  static long TIMEOUT_INTERVAL = 3000; // Timeouts disabled
+  
+  static boolean USE_TIMEOUT = false;
   /**
    * Whether or not to use edge chasing to detect deadlocks
    */
